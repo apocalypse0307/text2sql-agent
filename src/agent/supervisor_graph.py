@@ -305,7 +305,7 @@ _SQL_AGENT_PROMPT = f"""你是{_PROFILE.domain}数据仓库的 SQL 工程师。�
 
 def sql_agent(state: dict) -> dict:
     llm = get_llm()
-    bb = _blackboard(state)
+
     task = _own_task(state, "sql_agent")
     user_prompt = f"数据需求：{task}{_fix_hint(state, 'sql_agent')}"
 

@@ -16,10 +16,12 @@ P2-S7 MCP 集成测试：真实协议回环（stdio 子进程拉起 MCP server�
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -659,11 +661,58 @@ def _env_with_placeholder_credentials(provider: str = "deepseek") -> dict:
     return env
 
 
+def _is_tools_list_response(line: bytes) -> bool:
+    """这一行是不是 tools/list 的响应（id=2）。脏字节返回 False，留给调用方的断言去报。"""
+    try:
+        return json.loads(line).get("id") == 2
+    except (ValueError, AttributeError):
+        return False
+
+
 def _run_server_raw(args=(), env=None, timeout: int = 90) -> subprocess.CompletedProcess:
-    """起真子进程、喂完整握手 3 帧、关 stdin 让它自己退出，回收 stdout/stderr/退出码。"""
+    """起真子进程、喂完整握手 3 帧，等到 tools/list 的响应再关 stdin 让它自己退出，
+    回收 stdout/stderr/退出码。
+
+    ★ 不能喂完立刻关 stdin：EOF 可能抢在 tools/list 处理完之前到达，SDK 随即关掉写流，
+    响应写不出去（anyio.ClosedResourceError），进程退出码变成 1。这是测试自己造的竞争，
+    CI 上表现为这几条用例偶发失败，给 list_tools 加 0.5s 延迟就能稳定复现。
+    """
     payload = b"".join(json.dumps(f, ensure_ascii=False).encode() + b"\n" for f in _FRAMES)
-    return subprocess.run([sys.executable, str(SERVER), *args],
-                          input=payload, capture_output=True, env=env, timeout=timeout)
+    with subprocess.Popen([sys.executable, str(SERVER), *args], stdin=subprocess.PIPE,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env) as proc:
+        timed_out = threading.Event()
+
+        def _kill_on_timeout():
+            timed_out.set()
+            proc.kill()
+
+        watchdog = threading.Timer(timeout, _kill_on_timeout)
+        watchdog.start()
+        # stderr 放后台收：不收的话管道写满，子进程会卡在写日志上
+        stderr_parts: list[bytes] = []
+        stderr_reader = threading.Thread(target=lambda: stderr_parts.append(proc.stderr.read()))
+        stderr_reader.start()
+        try:
+            # 缺凭据的路径进程早已退出，写 stdin 会 BrokenPipe，属预期
+            with contextlib.suppress(BrokenPipeError):
+                proc.stdin.write(payload)
+                proc.stdin.flush()
+            stdout_parts: list[bytes] = []
+            for line in proc.stdout:
+                stdout_parts.append(line)
+                if _is_tools_list_response(line):
+                    break
+            with contextlib.suppress(BrokenPipeError):
+                proc.stdin.close()
+            stdout_parts.append(proc.stdout.read())
+            proc.wait()
+            stderr_reader.join()
+        finally:
+            watchdog.cancel()
+    if timed_out.is_set():
+        raise subprocess.TimeoutExpired(proc.args, timeout)
+    return subprocess.CompletedProcess(proc.args, proc.returncode,
+                                       b"".join(stdout_parts), stderr_parts[0])
 
 
 def _tool_names(proc: subprocess.CompletedProcess) -> list[str]:
