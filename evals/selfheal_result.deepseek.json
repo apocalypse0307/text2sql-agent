@@ -1,0 +1,210 @@
+{
+  "healed": 17,
+  "total": 24,
+  "rate": 0.7083,
+  "results": [
+    {
+      "id": "a01",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(distinct_products), 2) AS avg_distinct_products_per_order FROM (SELECT oi.order_id, COUNT(DISTINCT oi.product_id) AS distin",
+      "cost_cny": 0.001189
+    },
+    {
+      "id": "a01",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(product_count), 2) AS avg_distinct_products_per_order FROM (SELECT oi.order_id, COUNT(DISTINCT oi.product_id) AS product_co",
+      "cost_cny": 0.001161
+    },
+    {
+      "id": "a01",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(product_count), 2) AS avg_distinct_products_per_order FROM (SELECT o.order_id, COUNT(DISTINCT oi.product_id) AS product_cou",
+      "cost_cny": 0.001105
+    },
+    {
+      "id": "a02",
+      "kind": "E1_col",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT c.customer_state, ROUND(AVG(order_cnt), 2) AS avg_orders FROM (SELECT c.customer_unique_id, c.customer_state, COUNT(DISTINCT o.order_",
+      "cost_cny": 0.001625
+    },
+    {
+      "id": "a02",
+      "kind": "E2_table",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT c.customer_state, ROUND(AVG(order_cnt), 2) AS avg_orders_per_customer\nFROM (\n  SELECT c.customer_unique_id, c.customer_state, COUNT(D",
+      "cost_cny": 0.001789
+    },
+    {
+      "id": "a02",
+      "kind": "E3_syntax",
+      "healed": false,
+      "err": "OperationalError: no such column: c.customer_state",
+      "sql": "SELECT c.customer_state AS state, ROUND(AVG(order_cnt), 2) AS avg_orders FROM (SELECT c.customer_state, c.customer_unique_id, COUNT(DISTINCT",
+      "cost_cny": 0.001535
+    },
+    {
+      "id": "a03",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT COUNT(*) AS customer_count FROM (SELECT c.customer_unique_id FROM orders o JOIN customers c ON o.customer_id = c.customer_id WHERE o.",
+      "cost_cny": 0.001079
+    },
+    {
+      "id": "a03",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT COUNT(*) AS customers_with_5plus_orders FROM (SELECT c.customer_unique_id FROM orders o JOIN customers c ON o.customer_id = c.custome",
+      "cost_cny": 0.001115
+    },
+    {
+      "id": "a03",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT COUNT(*) AS customers_with_5plus_orders FROM (SELECT c.customer_unique_id FROM orders o JOIN customers c ON o.customer_id = c.custome",
+      "cost_cny": 0.001095
+    },
+    {
+      "id": "a06",
+      "kind": "E1_col",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN total BETWEEN 100 AND 200 THEN 1 ELSE 0 END) / COUNT(*), 2) AS pct FROM (SELECT o.order_id, SUM(oi.price ",
+      "cost_cny": 0.001192
+    },
+    {
+      "id": "a06",
+      "kind": "E2_table",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN t.amount BETWEEN 100 AND 200 THEN 1 ELSE 0 END) / COUNT(*), 2) AS pct FROM (SELECT o.order_id, SUM(oi.pri",
+      "cost_cny": 0.001202
+    },
+    {
+      "id": "a06",
+      "kind": "E3_syntax",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN t.total_amount >= 100 AND t.total_amount <= 200 THEN 1 ELSE 0 END) / COUNT(*), 2) AS pct FROM (SELECT o.o",
+      "cost_cny": 0.001338
+    },
+    {
+      "id": "a08",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND((SUM(CASE WHEN o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2019-01-01' THEN oi.price + oi.frei",
+      "cost_cny": 0.002408
+    },
+    {
+      "id": "a08",
+      "kind": "E2_table",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT ROUND((SUM(CASE WHEN o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2019-01-01' THEN oi.price + oi.frei",
+      "cost_cny": 0.002442
+    },
+    {
+      "id": "a08",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND((SUM(CASE WHEN o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2019-01-01' THEN oi.price + oi.frei",
+      "cost_cny": 0.00242
+    },
+    {
+      "id": "m02",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state AS state, ROUND(SUM(oi.price + oi.freight_value) / COUNT(DISTINCT o.order_id), 2) AS avg_order_value FROM orders o J",
+      "cost_cny": 0.00183
+    },
+    {
+      "id": "m02",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state AS state, ROUND(SUM(oi.price + oi.freight_value) / COUNT(DISTINCT o.order_id), 2) AS avg_order_value FROM orders o J",
+      "cost_cny": 0.001324
+    },
+    {
+      "id": "m02",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state AS state, ROUND(SUM(oi.price + oi.freight_value) / COUNT(DISTINCT o.order_id), 2) AS aov FROM orders o JOIN customer",
+      "cost_cny": 0.001336
+    },
+    {
+      "id": "m08",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state, ROUND(AVG(oi.freight_value), 2) AS avg_freight FROM order_items oi JOIN orders o ON oi.order_id = o.order_id JOIN c",
+      "cost_cny": 0.001823
+    },
+    {
+      "id": "m08",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state, ROUND(AVG(oi.freight_value), 2) AS avg_freight FROM orders o JOIN customers c ON o.customer_id = c.customer_id JOIN",
+      "cost_cny": 0.001317
+    },
+    {
+      "id": "m08",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state, ROUND(AVG(oi.freight_value), 2) AS avg_freight FROM order_items oi JOIN orders o ON oi.order_id = o.order_id JOIN c",
+      "cost_cny": 0.001349
+    },
+    {
+      "id": "g07",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(julianday(order_delivered_customer_date) - julianday(order_approved_at)), 2) AS avg_days_approved_to_delivered FROM orders ",
+      "cost_cny": 0.001567
+    },
+    {
+      "id": "g07",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(julianday(order_delivered_customer_date) - julianday(order_approved_at)), 2) AS avg_days_approved_to_delivered FROM orders ",
+      "cost_cny": 0.001063
+    },
+    {
+      "id": "g07",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(julianday(order_delivered_customer_date) - julianday(order_approved_at)), 2) AS avg_days_approved_to_delivered FROM orders ",
+      "cost_cny": 0.001099
+    }
+  ],
+  "elapsed_s": 100,
+  "cost": {
+    "calls": 24,
+    "input_tokens": 86262,
+    "cache_hit_tokens": 80256,
+    "cache_hit_rate": 0.9304,
+    "output_tokens": 2523,
+    "cost_cny": 0.035406,
+    "peak": true,
+    "model": "deepseek-flash"
+  }
+}

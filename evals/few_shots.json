@@ -1,0 +1,62 @@
+[
+  {
+    "question": "2017年有多少个订单？",
+    "sql": "SELECT COUNT(*) AS order_count FROM orders WHERE order_status='delivered' AND order_purchase_timestamp >= '2017-01-01' AND order_purchase_timestamp < '2018-01-01';",
+    "reasoning": "订单量统计在 orders 主表；默认只统计 delivered；时间范围用半开区间 [start, end) 显式写出。"
+  },
+  {
+    "question": "每个州的客户数量排名",
+    "sql": "SELECT customer_state, COUNT(DISTINCT customer_unique_id) AS customer_count FROM customers GROUP BY customer_state ORDER BY customer_count DESC;",
+    "reasoning": "客户维度去重必须用 customer_unique_id 而不是 customer_id（后者每笔订单一条）；州字段在 customers 表。"
+  },
+  {
+    "question": "客单价最高的前10个品类是什么？",
+    "sql": "SELECT pct.product_category_name_english AS category, ROUND(SUM(oi.price) / COUNT(DISTINCT oi.order_id), 2) AS avg_order_value FROM order_items oi JOIN products p ON oi.product_id = p.product_id LEFT JOIN product_category_translation pct ON p.product_category_name = pct.product_category_name GROUP BY pct.product_category_name_english ORDER BY avg_order_value DESC LIMIT 10;",
+    "reasoning": "客单价 = 该品类销售额/订单数，需要 order_items(金额) join products(品类) join translation(英文名)；金额在 order_items.price 按订单聚合。"
+  },
+  {
+    "question": "2018年各月订单金额趋势",
+    "sql": "SELECT substr(o.order_purchase_timestamp, 1, 7) AS month, ROUND(SUM(oi.price + oi.freight_value), 2) AS revenue FROM orders o JOIN order_items oi ON o.order_id = oi.order_id WHERE o.order_status='delivered' AND o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2019-01-01' GROUP BY month ORDER BY month;",
+    "reasoning": "月度趋势用 substr 取年月；金额含运费要 join order_items 并把 price+freight_value 求和；时间过滤放 WHERE 里先缩范围。"
+  },
+  {
+    "question": "平均每个订单包含几个商品？",
+    "sql": "SELECT ROUND(AVG(item_count), 2) AS avg_items_per_order FROM (SELECT order_id, COUNT(*) AS item_count FROM order_items GROUP BY order_id);",
+    "reasoning": "订单内商品数 = order_items 按 order_id 分组计数，再对全部分组取平均——两层聚合用子查询。"
+  },
+  {
+    "question": "评价分数低于3分的订单占比是多少？",
+    "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN review_score < 3 THEN 1 ELSE 0 END) / COUNT(*), 2) AS bad_review_pct FROM order_reviews;",
+    "reasoning": "占比用 CASE WHEN 条件计数除以总数；注意 order_reviews 可能一单多条评价（官方数据含重复），精确场景需先按 order_id 去重。"
+  },
+  {
+    "question": "使用信用卡支付的订单里，平均分期数是多少？",
+    "sql": "SELECT ROUND(AVG(payment_installments), 2) AS avg_installments FROM order_payments WHERE payment_type='credit_card';",
+    "reasoning": "支付维度在 order_payments 表；payment_type 枚举值在 schema 注释里，payment_installments 是分期数。"
+  },
+  {
+    "question": "哪些卖家的销售额超过10万？",
+    "sql": "SELECT oi.seller_id, ROUND(SUM(oi.price + oi.freight_value), 2) AS total_sales FROM order_items oi JOIN orders o ON oi.order_id = o.order_id WHERE o.order_status='delivered' GROUP BY oi.seller_id HAVING SUM(oi.price + oi.freight_value) > 100000 ORDER BY total_sales DESC;",
+    "reasoning": "卖家销售额在 order_items 按 seller_id 聚合；HAVING 过滤聚合结果（WHERE 不能用在聚合后）；金额大数用 HAVING > 10万 圈定头部卖家。"
+  },
+  {
+    "question": "家具装饰(furniture_decor)品类的平均运费是多少？",
+    "sql": "SELECT ROUND(AVG(oi.freight_value), 2) AS avg_freight FROM order_items oi JOIN products p ON oi.product_id = p.product_id JOIN product_category_translation pct ON p.product_category_name = pct.product_category_name WHERE pct.product_category_name_english = 'furniture_decor';",
+    "reasoning": "品类过滤必须走翻译表：products.product_category_name 存的是葡语原名（如 moveis_decoracao），要先 join product_category_translation 才能用英文品类名过滤——这是本库最常见的 join 陷阱。"
+  },
+  {
+    "question": "2017年第四季度(Q4)的订单量是多少？",
+    "sql": "SELECT COUNT(*) AS order_count FROM orders WHERE order_status='delivered' AND order_purchase_timestamp >= '2017-10-01' AND order_purchase_timestamp < '2018-01-01';",
+    "reasoning": "季度边界 = 日期半开区间；Q4 是 10/11/12 三个月，跨自然年统计要小心（此例未跨年）。"
+  },
+  {
+    "question": "复购率：有多少客户下过不止一单？",
+    "sql": "SELECT COUNT(*) AS repeat_customers FROM (SELECT customer_unique_id FROM orders o JOIN customers c ON o.customer_id = c.customer_id WHERE o.order_status='delivered' GROUP BY c.customer_unique_id HAVING COUNT(DISTINCT o.order_id) > 1);",
+    "reasoning": "复购 = 客户在订单维度出现次数>1；customer_unique_id 是复购分析的正确粒度（跨 order_id 去重）。"
+  },
+  {
+    "question": "床品(bed_bath_table)品类销量最高的前5个卖家",
+    "sql": "SELECT oi.seller_id, COUNT(*) AS items_sold FROM order_items oi JOIN products p ON oi.product_id = p.product_id JOIN product_category_translation pct ON p.product_category_name = pct.product_category_name WHERE pct.product_category_name_english = 'bed_bath_table' GROUP BY oi.seller_id ORDER BY items_sold DESC LIMIT 5;",
+    "reasoning": "多表 join：order_items→products→translation 才能用英文品类过滤；销量按 seller_id 计数后排序取前5。"
+  }
+]

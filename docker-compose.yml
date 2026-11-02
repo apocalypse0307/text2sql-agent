@@ -1,0 +1,124 @@
+# Text2SQL Agent —— 一键起服务（T2，2026-10-20）
+#
+#   docker compose up -d --build          # 起 api（SQLite，数据走 ./data 卷）
+#   docker compose ps                     # 等 STATUS 变 healthy
+#   curl http://127.0.0.1:8501/api/health
+#   docker compose down                   # 停（数据留在 ./data，不删库）
+#
+#   docker compose --profile mysql up -d  # 连带 MySQL（可选，见文件末尾）
+#
+# ## 为什么这里**故意不转发 DB_URL**
+#
+# compose 会自动读取项目根的 `.env` 做变量插值。本机 `.env` 里真实存在：
+#
+#     DB_URL=sqlite:///D:/Myprojects/text2sql-agent/data/db/olist.db
+#
+# 一旦写成 `DB_URL: ${DB_URL:-...}`，这个 **Windows 路径会被原样塞进 Linux 容器**，
+# 容器里根本不存在 D 盘 —— 症状是服务起来但一查询就 "unable to open database file"，
+# 而 `docker ps` 显示一切正常，极难排查。
+# 同理不能写 `DB_URL: ${DB_URL:-}`（空串会覆盖掉 config.py 里的正确默认值，
+# pydantic-settings 认为「显式传了空值」）。
+#
+# 所以：**DB_URL / DB_RO_URI 一律不声明**，让 src/core/config.py 在容器内按
+# PROJECT_ROOT=/app 自己拼出 `sqlite:////app/data/db/olist.db`。要切 MySQL，
+# 用命令行显式覆盖（见文件末尾注释），不靠 .env 隐式生效。
+
+name: p2-text2sql
+
+services:
+  api:
+    build:
+      context: .
+      target: runtime          # 显式指定：Dockerfile 最后一个阶段是 runtime，写出来更清楚
+    image: p2-text2sql:runtime
+    ports:
+      - "${API_HOST_PORT:-8501}:8501"
+    environment:
+      # 容器内必须 0.0.0.0（run_api.py 的默认 127.0.0.1 是给本机开发用的）
+      API_HOST: 0.0.0.0
+      API_PORT: "8501"
+      # LLM 相关照常透传；密钥写进 .env 即可被 compose 插值，
+      # 也可以 shell 里 export 后 docker compose up
+      LLM_PROVIDER: ${LLM_PROVIDER:-agnes}
+      AGNES_API_KEY: ${AGNES_API_KEY:-}
+      AGNES_BASE_URL: ${AGNES_BASE_URL:-https://apihub.agnes-ai.com/v1}
+      AGNES_MODEL: ${AGNES_MODEL:-agnes-2.0-flash}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      DEEPSEEK_THINKING: ${DEEPSEEK_THINKING:-disabled}
+      SCENARIO: ${SCENARIO:-olist}
+    volumes:
+      # 真实库 / CSV / 审计日志 / 自定义表注册都在 data/ 下，镜像里一个都不带
+      - ./data:/app/data
+    healthcheck:
+      # 用 python 而不是 curl：python:3.12-slim 里没有 curl，为一个健康检查
+      # 多装一个包不值当
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              ok = urllib.request.urlopen("http://127.0.0.1:8501/api/health", timeout=3).status == 200
+          except Exception:
+              ok = False
+          sys.exit(0 if ok else 1)
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # 启动期要读 schema、恢复自定义表注册，给 20s 余量
+      start_period: 20s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # 可选：MySQL 8.4 生产形态（`--profile mysql` 才会启动，默认 up 不带它）
+  #
+  # 首次导入数据（需要宿主机上已有的 data/raw/*.csv）：
+  #   docker compose --profile mysql up -d mysql
+  #   docker compose run --rm \
+  #     -e MYSQL_ROOT_PWD="$MYSQL_ROOT_PWD" -e MYSQL_HOST=mysql \
+  #     api python scripts/init_db_mysql.py
+  #
+  # 验证 MySQL 通路（**显式**覆盖 DB_URL，不靠 .env 隐式生效）：
+  #   docker compose run --rm \
+  #     -e DB_URL="mysql+pymysql://agent_ro:<密码>@mysql:3306/olist?charset=utf8mb4" \
+  #     api python -c "from src.db.connect import execute_select; \
+  #                    print(execute_select('SELECT COUNT(*) c FROM orders'))"
+  #
+  # 注意用 `run --rm` 而不是 `exec`：`up -d mysql` 只起了 mysql，
+  # api 容器此时并没有常驻进程可供 exec 进去。
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.4
+    profiles: ["mysql"]
+    environment:
+      # 刻意**不用** `${MYSQL_ROOT_PWD:?...}`：compose 会先对整个文件做变量插值，
+      # **再**按 profile 过滤服务。也就是说即使 mysql 处于未激活的 profile，
+      # 缺这个变量也会让 `docker compose up`（乃至 down）直接报
+      # "required variable MYSQL_ROOT_PWD is missing a value" 而整体失败。
+      # 这条在 CI 首次跑时真实发生过——默认路径被一个「没启用的服务」拖死。
+      # 所以给一个本地开发用的弱密码兜底，生产必须显式覆盖。
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PWD:-dev_only_change_me}
+      MYSQL_DATABASE: olist
+      # 只读账号：四层安全的第①层（DB 授权仅 SELECT，写操作 1142 denied）
+      MYSQL_USER: agent_ro
+      MYSQL_PASSWORD: ${MYSQL_RO_PWD:-agent_ro_pwd}
+    ports:
+      - "${MYSQL_HOST_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # `$$` 是 compose 的转义：它渲染成字面 `$`，于是密码取自**容器自己的**
+      # 环境变量 MYSQL_ROOT_PASSWORD，而不是让 compose 在解析期用宿主机的
+      # ${MYSQL_ROOT_PWD} 插值——后者在没设该变量时会变成 `-p`（空），
+      # 与容器里实际的密码不一致，健康检查永远红。
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  mysql-data:

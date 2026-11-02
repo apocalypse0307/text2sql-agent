@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text2SQL Agent · 业务取数助手</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#eef0f4; --card:rgba(255,255,255,.72); --card-solid:#fff;
+    --line:rgba(30,35,50,.10); --line2:rgba(30,35,50,.18);
+    --ink:#1c1f27; --ink2:#5b6270; --ink3:#8a91a0;
+    --accent:#3d5afe; --accent-soft:rgba(61,90,254,.10);
+    --ok:#0a9e6c; --err:#d64545; --warn:#b7791f;
+    --radius:16px; --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--ink); background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(61,90,254,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(10,158,108,.08), transparent 55%), var(--bg);
+  }
+  .glass{background:var(--card);backdrop-filter:blur(18px) saturate(1.4);
+    -webkit-backdrop-filter:blur(18px) saturate(1.4);border:1px solid var(--line);
+    box-shadow:0 8px 28px rgba(28,31,39,.06);}
+  #app{display:grid;grid-template-rows:52px 1fr;height:100vh;padding:12px;gap:12px}
+  header{display:flex;align-items:center;gap:12px;padding:0 18px;border-radius:var(--radius)}
+  header h1{font-size:15px;font-weight:600;letter-spacing:.2px}
+  header .sub{color:var(--ink3);font-size:12px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(10,158,108,.18)}
+  .spacer{flex:1}
+  .switch{display:flex;background:rgba(30,35,50,.05);border-radius:10px;padding:2px;gap:2px}
+  .switch button{border:0;background:transparent;padding:5px 12px;border-radius:8px;color:var(--ink2);cursor:pointer;font-size:12px}
+  .switch button.on{background:var(--card-solid);color:var(--accent);font-weight:600;box-shadow:0 2px 6px rgba(28,31,39,.08)}
+  #newThread{border:1px solid var(--line2);background:transparent;border-radius:9px;padding:5px 10px;font-size:12px;color:var(--ink2);cursor:pointer}
+  main{display:grid;grid-template-columns:260px 1fr 420px;gap:12px;min-height:0}
+  .pane{border-radius:var(--radius);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .pane h2{font-size:12px;font-weight:600;color:var(--ink2);padding:14px 16px 8px;letter-spacing:.4px}
+  /* 左：Schema 树 */
+  #schema{overflow:auto;padding:0 10px 14px;flex:1}
+  .tbl{margin:2px 6px 6px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.5)}
+  .tbl summary{cursor:pointer;padding:8px 10px;font-size:13px;font-weight:600;list-style:none;display:flex;gap:8px;align-items:center}
+  .tbl summary::before{content:"▸";color:var(--ink3);font-size:10px;transition:.15s}
+  .tbl[open] summary::before{transform:rotate(90deg)}
+  .tbl summary .cnt{font-size:11px;color:var(--ink3);font-weight:400;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px}
+  .tbl .tip{font-size:11px;color:var(--ink3);padding:0 10px 6px}
+  .tbl ul{list-style:none;padding:0 6px 8px}
+  .tbl li{font-size:12px;padding:4px 8px 5px;border-radius:6px;cursor:default;margin-bottom:1px}
+  .tbl li b{font-family:var(--mono);font-weight:600;color:var(--accent);font-size:12px;display:block;letter-spacing:.2px}
+  .tbl li .c{display:block;color:var(--ink2);font-size:11.5px;margin-top:1px;line-height:1.45}
+  .tbl li:hover{background:var(--accent-soft)}
+  /* 中：对话 */
+  #chat{flex:1;overflow:auto;padding:6px 16px 12px}
+  .msg{max-width:860px;margin:0 auto}
+  .q{background:var(--accent);color:#fff;border-radius:14px 14px 4px 14px;padding:9px 14px;margin:12px 0 6px;font-size:14px;width:fit-content;max-width:85%;margin-left:auto}
+  .card{background:var(--card-solid);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+  .steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .chip{font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--ink2);background:rgba(255,255,255,.6);display:flex;align-items:center;gap:4px}
+  .chip b{color:var(--accent);font-weight:600}
+  .chip.err{border-color:rgba(212,69,69,.4);color:var(--err)}
+  .chip.okk{border-color:rgba(10,158,108,.35);color:var(--ok)}
+  .sqlBlock{margin:4px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .sqlHead{display:flex;align-items:center;padding:5px 10px;font-size:11px;color:var(--ink3);background:rgba(30,35,50,.03)}
+  .sqlHead button{margin-left:auto;border:0;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:6px;cursor:pointer;font-size:11px}
+  pre.sql{font-family:var(--mono);font-size:12px;padding:10px;overflow:auto;background:rgba(30,35,50,.02);color:var(--ink);white-space:pre-wrap;word-break:break-all;display:none}
+  pre.sql.open{display:block}
+  .thoughtLine{font-size:12px;color:var(--ink2);padding:2px 4px;border-left:2px solid var(--line2);margin:3px 0 3px 6px}
+  .answerText{font-size:14px;color:var(--ink);white-space:pre-wrap;margin:6px 2px}
+  .answerText b{color:var(--accent)}
+  .answerText code{font-family:var(--mono);background:rgba(30,35,50,.06);padding:0 4px;border-radius:5px}
+  .answerText table.ansTbl{border-collapse:collapse;margin:8px 0;font-size:12.5px;width:auto;display:block;overflow-x:auto;max-width:100%}
+  .answerText table.ansTbl th,.answerText table.ansTbl td{border:1px solid var(--line);padding:5px 10px;text-align:left;font-family:var(--mono);font-size:12px;white-space:nowrap}
+  .answerText table.ansTbl th{background:rgba(30,35,50,.05);font-weight:600;color:var(--ink2)}
+  .answerText table.ansTbl tr:nth-child(even) td{background:rgba(30,35,50,.015)}
+  .answerText ul.ansUl{margin:6px 0 6px 18px;padding:0}
+  .answerText ul.ansUl li{list-style:disc;margin:2px 0;line-height:1.55;white-space:pre-wrap}
+  .answerText ol.ansOl{margin:6px 0 6px 18px;padding:0}
+  .answerText ol.ansOl li{list-style:decimal;margin:2px 0;line-height:1.55;white-space:pre-wrap}
+  .answerText h3.ansH{font-size:15px;font-weight:700;margin:10px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--line)}
+  .answerText p.ansP{margin:6px 0;line-height:1.6}
+  .answerText.live::after{content:"▍";color:var(--accent);animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .fb{display:flex;gap:6px;margin-top:8px;align-items:center}
+  .fb button{border:1px solid var(--line2);background:transparent;width:28px;height:26px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--ink2);line-height:1}
+  .fb button:hover{border-color:var(--accent);color:var(--accent)}
+  .fb .hint{font-size:11px;color:var(--ink3)}
+  /* 右：结果 + 图表 */
+  .rsec{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-top:1px solid var(--line)}
+  .rtable{flex:1;overflow:auto;min-height:0}
+  .rtable table{border-collapse:collapse;width:100%;font-size:12px}
+  .rtable th{position:sticky;top:0;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);text-align:left;padding:7px 10px;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--line2);white-space:nowrap;font-size:11px}
+  .rtable td{padding:6px 10px;border-bottom:1px solid var(--line);color:var(--ink);white-space:nowrap;font-family:var(--mono);font-size:12px}
+  .rtable td.num{text-align:right}
+  .rtable tr:hover td{background:rgba(61,90,254,.04)}
+  #chartWrap{height:340px;padding:8px 10px 4px}
+  #chart{width:100%;height:100%}
+  .emptyHint{color:var(--ink3);font-size:12px;padding:26px;text-align:center}
+  .bar{color:var(--err);font-size:12px;padding:8px 12px;border:1px solid rgba(212,69,69,.3);background:rgba(212,69,69,.06);border-radius:10px;margin:6px 2px}
+  /* P2-S9 写提案审批卡 */
+  .propBox{margin:8px 0;border:1px solid rgba(166,124,0,.4);background:rgba(166,124,0,.05);border-radius:12px;padding:10px 12px}
+  .propHead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .propBadge{font-size:10px;font-weight:700;letter-spacing:1px;padding:2px 10px;border-radius:999px;background:var(--ink);color:#fff}
+  .propBadge.update{background:#a67c00}.propBadge.delete{background:#d44545}.propBadge.insert{background:#0a9e6c}
+  .propTitle{font-size:12px;color:var(--ink)}
+  .propMeta{font-size:11.5px;color:var(--dim);line-height:1.8;margin:6px 0}
+  .propWarn{color:#a67c00}
+  .propBox pre.sql{display:block;background:rgba(255,255,255,.6)}
+  .propSample{font-size:11px;color:var(--dim);margin:4px 0}
+  .propSample summary{cursor:pointer}
+  .propSampleRows div{padding:2px 0;border-bottom:1px dashed var(--line);font-family:var(--mono)}
+  .propBtns{display:flex;gap:8px;margin-top:8px}
+  .propBtns button{padding:6px 16px;border-radius:8px;border:none;cursor:pointer;font-size:12.5px;font-weight:600}
+  .propOk{background:var(--ink);color:#fff}
+  .propNo{background:transparent;border:1px solid var(--line)!important;color:var(--ink)}
+  .propBtns button:disabled{opacity:.45;cursor:not-allowed}
+  .propResult{font-size:12px;margin-top:8px;padding:6px 10px;border-radius:8px}
+  .propResult.okk2{color:var(--ok);border:1px solid rgba(10,158,108,.3)}
+  .propResult.no2{color:var(--err);border:1px solid rgba(212,69,69,.3)}
+  #csvResult{padding:0 10px}
+  /* 输入区 */
+  #inputBar{padding:10px 16px 14px;border-top:1px solid var(--line)}
+  #askRow{display:flex;gap:8px;align-items:center;background:var(--card-solid);border:1px solid var(--line2);border-radius:12px;padding:6px 6px 6px 14px}
+  #askRow:focus-within{border-color:var(--accent)}
+  #ask{flex:1;border:0;outline:0;font-size:14px;background:transparent;color:var(--ink);resize:none;max-height:96px;line-height:1.5;font-family:inherit}
+  #sendBtn{border:0;background:var(--accent);color:#fff;border-radius:10px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:600}
+  #sendBtn:disabled{opacity:.5;cursor:not-allowed}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chips button{border:1px solid var(--line);background:rgba(255,255,255,.6);color:var(--ink2);font-size:11px;padding:3px 10px;border-radius:999px;cursor:pointer}
+  .chips button:hover{color:var(--accent);border-color:var(--accent)}
+  @media (max-width:1080px){main{grid-template-columns:200px 1fr 340px}}
+  @media (max-width:860px){main{grid-template-columns:1fr}#leftPane,#rightPane{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="glass">
+    <span class="dot" id="statusDot" title="服务状态"></span>
+    <h1>业务取数助手 <span class="sub">Text2SQL · LangGraph · 只读安全</span></h1>
+    <div class="spacer"></div>
+    <div class="switch" id="graphSwitch">
+      <button data-g="agentic" class="on">Agent 自主编排</button>
+      <button data-g="react">确定性管线</button>
+      <button data-g="supervisor">Supervisor 多智能体</button>
+    </div>
+    <button id="newThread">新对话</button>
+  </header>
+
+  <main>
+    <section id="leftPane" class="pane glass">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;padding-right:10px">
+        <span>数据库 Schema · Olist 电商</span>
+        <button id="csvBtn" style="font-size:11px;padding:3px 10px;cursor:pointer;border-radius:8px;border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit">＋ 导入CSV</button>
+      </h2>
+      <input type="file" id="csvFile" accept=".csv" hidden>
+      <div id="csvResult"></div>
+      <div id="schema"><div class="emptyHint">加载中…</div></div>
+    </section>
+
+    <section id="midPane" class="pane glass" style="position:relative">
+      <div id="chat"></div>
+      <div id="inputBar">
+        <div id="askRow">
+          <textarea id="ask" rows="1" placeholder="用自然语言问业务问题，例如：2017 年各州订单量 Top5 是哪些？"></textarea>
+          <button id="sendBtn">发送</button>
+        </div>
+        <div class="chips" id="chips"></div>
+      </div>
+    </section>
+
+    <section id="rightPane" class="pane glass">
+      <h2>结果与图表</h2>
+      <div class="rsec">
+        <div id="chartWrap"><div id="chart"></div></div>
+        <div id="rtable" class="rtable"><div class="emptyHint">查询结果将显示在这里</div></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const chat = $("#chat"), ask = $("#ask"), sendBtn = $("#sendBtn");
+let threadId = "t_" + Date.now().toString(36);
+let graphMode = "agentic";
+let chart = null;
+const hist = JSON.parse(sessionStorage.getItem("t2s_threads") || "{}");
+
+const EXAMPLES = [
+  "2017 年有多少笔已送达订单？",
+  "2018 年订单量最高的前 5 个州是哪些？用图表展示",
+  "平均客单价最高的前 3 个州是哪些？",
+  "2025 年有多少笔订单？（空结果兜底）",
+  "新增客户：customer_id=c_test_001，customer_unique_id=u_test_001，城市=sao paulo，州=SP（写提案演示）",
+  "被取消的订单有多少笔？（对照：提到“取消”但其实是查询）"
+];
+
+function init(){
+  loadSchema();
+  EXAMPLES.forEach(t => {
+    const b = document.createElement("button");
+    b.textContent = t; b.onclick = () => askQuestion(t); $("#chips").appendChild(b);
+  });
+  ask.addEventListener("keydown", e => {
+    if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); doSend(); }
+  });
+  $("#sendBtn").onclick = doSend;
+  // P2-S9: CSV 导入（系统路径入库 → 动态注册进白名单/Schema → 立即可问）
+  $("#csvBtn").onclick = () => $("#csvFile").click();
+  $("#csvFile").onchange = async () => {
+    const f = $("#csvFile").files[0];
+    if(!f) return;
+    const box = $("#csvResult");
+    box.innerHTML = '<div class="emptyHint">导入中：' + escapeHtml(f.name) + ' …</div>';
+    try{
+      const fd = new FormData(); fd.append("file", f);
+      const r = await fetch("/api/upload_csv", {method: "POST", body: fd});
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.detail || r.status);
+      box.innerHTML = '<div class="emptyHint">✓ ' + escapeHtml(d.table) + ' · ' +
+        d.quality.rows_inserted + '/' + d.quality.rows_in_file + ' 行入库' +
+        (d.quality.match ? '' : '（行数不一致！）') + ' · 可直接提问查询</div>';
+      loadSchema();   // 新表已进 /api/schema
+    }catch(e){
+      box.innerHTML = '<div class="emptyHint">导入失败：' + escapeHtml(e.message) + '</div>';
+    }
+    $("#csvFile").value = "";
+  };
+  $("#newThread").onclick = () => {
+    threadId = "t_" + Date.now().toString(36);
+    chat.innerHTML = "";
+    setRightEmpty(); boot();
+  };
+  document.querySelectorAll("#graphSwitch button").forEach(b =>
+    b.onclick = () => {
+      document.querySelectorAll("#graphSwitch button").forEach(x => x.classList.remove("on"));
+      b.classList.add("on"); graphMode = b.dataset.g;
+      if(graphMode === "agentic"){ ask.placeholder = "Agent 自主编排：模型自己决定调哪些工具、可自愈重试"; }
+      else if(graphMode === "supervisor"){ ask.placeholder = "Supervisor 多智能体：规划→分工(SQL/分析/图表)→判官质检，不合格打回重做"; }
+      else { ask.placeholder = "确定性管线：理解→生成 SQL→校验→执行→解读，流程固定"; }
+    });
+  boot();
+}
+
+function boot(){
+  const list = hist[threadId] || [];
+  list.forEach(q => renderQuestionBubble(q));
+}
+
+function askQuestion(q){ ask.value = q; doSend(); }
+
+async function loadSchema(){
+  try{
+    const r = await fetch("/api/schema"); const d = await r.json();
+    const wrap = $("#schema"); wrap.innerHTML = "";
+    d.tables.forEach(t => {
+      const det = document.createElement("details"); det.className = "tbl";
+      const sum = document.createElement("summary");
+      const nm = document.createElement("span"); nm.textContent = t.name;
+      const cnt = document.createElement("span"); cnt.className = "cnt"; cnt.textContent = t.comment;
+      sum.append(nm, cnt);
+      const tip = document.createElement("div"); tip.className = "tip"; tip.textContent = t.comment;
+      const ul = document.createElement("ul");
+      t.columns.forEach(c => {
+        const li = document.createElement("li");
+        const b = document.createElement("b"); b.textContent = c.name;
+        const cc = document.createElement("span"); cc.className = "c"; cc.textContent = c.comment;
+        li.append(b, cc); ul.appendChild(li);
+      });
+      det.append(sum, tip, ul); wrap.appendChild(det);
+    });
+  }catch(e){ $("#schema").innerHTML = '<div class="emptyHint">Schema 加载失败：' + e.message + '</div>'; }
+}
+
+function setRightEmpty(){
+  $("#rtable").innerHTML = '<div class="emptyHint">查询结果将显示在这里</div>';
+  if(chart){ chart.clear(); chart = null; }
+}
+
+async function doSend(){
+  const q = ask.value.trim();
+  if(!q || sendBtn.disabled) return;
+  ask.value = ""; sendBtn.disabled = true;
+  renderQuestionBubble(q);
+  (hist[threadId] = hist[threadId] || []).push(q);
+  sessionStorage.setItem("t2s_threads", JSON.stringify(hist));
+  const card = renderAssistantCard(q);
+  setRightEmpty();
+  const rows = [];
+  const evSeq = [];
+  let sqls = [], chartCfg = null, historyId = null;
+
+  const body = JSON.stringify({question: q, thread_id: threadId, graph: graphMode});
+  try{
+    const resp = await fetch("/api/query", {
+      method: "POST", headers: {"Content-Type": "application/json"}, body
+    });
+    if(!resp.ok || !resp.body) throw new Error("HTTP " + resp.status);
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, {stream: true});
+      let idx;
+      while((idx = buf.indexOf("\n\n")) >= 0){
+        const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        for(const line of chunk.split("\n")){
+          if(!line.startsWith("data: ")) continue;
+          let ev; try{ ev = JSON.parse(line.slice(6)); }catch(_){ continue; }
+          handleEvent(ev, card, rows, evSeq, x => sqls = x, c => chartCfg = c, id => historyId = id);
+        }
+      }
+    }
+    renderFeedbackRow(card, () => historyId);
+  }catch(e){
+    card.append(el("div","bar","连接/执行失败：" + e.message));
+  }finally{
+    sendBtn.disabled = false;
+  }
+}
+
+function handleEvent(ev, card, rows, evSeq, setSqls, setChart, setHid){
+  const ph = card.querySelector("[data-ph]");
+  if(ph && ev.type !== "done") ph.remove();
+  if(ev.type === "delta"){
+    // 逐字预览：纯文本先打出来，终态 answer 到了再整块换成 md() 渲染版
+    let live = card.querySelector(".answerText.live");
+    if(!live){ live = el("div","answerText live"); live._buf = ""; }
+    if(ev.reset){ live._buf = ""; card.appendChild(live); }   // 新一轮 LLM 调用：清空并挪到卡片末尾
+    if(!live.isConnected) card.appendChild(live);
+    live._buf += ev.text || "";
+    // 模型偶尔夹带的 <echarts-config> 块（服务端终态会剥掉），流式阶段先藏起来，未闭合的尾巴也藏
+    live.textContent = live._buf.replace(/<\s*echarts[\s\S]*?(<\/\s*echarts[^>]*>|$)/gi, "");
+    chat.scrollTop = chat.scrollHeight;
+    return;
+  }
+  evSeq.push(ev);
+  if(ev.type === "done"){ setHid(ev.history_id); setStatus(ev.status); return; }
+  const stepsEl = card.querySelector(".steps");
+  if(ev.type === "thought"){
+    stepsEl.appendChild(el("span","chip", "思考"));
+    card.appendChild(el("div","thoughtLine", ev.content || ""));
+  }else if(ev.type === "sql"){
+    setSqls((card._sqls = card._sqls || []).concat([ev]));
+    const wrap = el("div","sqlBlock");
+    const head = el("div","sqlHead", "SQL · " + (ev.step || ""));
+    const cp = document.createElement("button"); cp.textContent = "复制";
+    cp.onclick = async e => { e.stopPropagation(); try{ await navigator.clipboard.writeText(ev.sql); cp.textContent = "已复制"; setTimeout(() => cp.textContent = "复制", 1200); }catch(_){} };
+    head.appendChild(cp);
+    const pre = el("pre","sql", ev.sql);
+    head.addEventListener("click", () => pre.classList.toggle("open"));
+    wrap.append(head, pre);
+    card.insertBefore(wrap, card.querySelector(".answerText") || null);
+    stepsEl.appendChild(el("span","chip","SQL 已生成"));
+  }else if(ev.type === "result"){
+    renderTable(ev.rows || [], ev.total || (ev.rows||[]).length);
+    rows.push(...(ev.rows || []));
+    const chip = el("span","chip okk", "结果 " + (ev.total ?? (ev.rows||[]).length) + " 行");
+    if(ev.note){ chip.title = ev.note; chip.textContent += " · 截断"; }
+    stepsEl.appendChild(chip);
+  }else if(ev.type === "chart"){
+    setChart(ev.config);
+    renderChart(ev.config);
+    stepsEl.appendChild(el("span","chip","图表已生成"));
+  }else if(ev.type === "error"){
+    stepsEl.appendChild(el("span","chip err", "失败"));
+    const bar = el("div","bar", (ev.content || "执行失败") + (ev.blocked ? "（安全拦截）" : ""));
+    card.appendChild(bar);
+  }else if(ev.type === "proposal"){
+    // P2-S9 HITL：写提案卡——模型只有建议权，执行必须人点确认
+    stepsEl.appendChild(el("span","chip warn","写提案 · 待审批"));
+    card.appendChild(renderProposal(ev));
+    setStatus("proposal");
+  }else if(ev.type === "answer"){
+    // md() 产出的是 HTML，必须走 innerHTML——textContent 会把整段标签当正文显示（乱码根因）
+    // 安全性：md() 内部先整体 escape 再只插入白名单标签，无注入面
+    card.querySelector(".answerText.live")?.remove();
+    const ans = el("div", "answerText");
+    ans.innerHTML = md(ev.message || "");
+    card.appendChild(ans);
+    card._status = ev.status;
+    setStatus(ev.status);
+  }
+}
+
+function renderQuestionBubble(q){
+  const d = el("div","msg");
+  d.appendChild(el("div","q", q));
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function renderAssistantCard(q){
+  const card = el("div","msg");
+  const c = el("div","card");
+  const steps = el("div","steps");
+  c.appendChild(steps);
+  const ph = el("div","thoughtLine","正在执行…"); ph.dataset.ph = "1";
+  c.appendChild(ph);
+  card.appendChild(c);
+  chat.appendChild(card);
+  chat.scrollTop = chat.scrollHeight;
+  return c;
+}
+
+function renderFeedbackRow(card, getHid){
+  const fb = el("div","fb");
+  const note = el("span","hint","这条回答有用吗？");
+  const ok = document.createElement("button"); ok.textContent = "👍";
+  const no = document.createElement("button"); no.textContent = "👎";
+  ok.onclick = () => postFb(getHid(), 5, ok);
+  no.onclick = () => postFb(getHid(), 1, no);
+  fb.append(note, ok, no);
+  card.appendChild(fb);
+}
+async function postFb(id, rating, btn){
+  if(!id){ alert("等待执行完成"); return; }
+  try{ await fetch("/api/feedback", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({history_id: id, rating, comment:""})});
+    btn.textContent = "✓"; btn.style.color = "var(--ok)"; btn.disabled = true;
+  }catch(_){}
+}
+
+function renderTable(rowsArr, total){
+  const box = $("#rtable");
+  if(!rowsArr.length){ box.innerHTML = '<div class="emptyHint">查询成功，0 行结果（空结果兜底）</div>'; return; }
+  const cols = Object.keys(rowsArr[0]);
+  const tbl = document.createElement("table");
+  const thead = document.createElement("thead");
+  const tr = document.createElement("tr");
+  cols.forEach(c => { const th = document.createElement("th"); th.textContent = c; tr.appendChild(th); });
+  thead.appendChild(tr); tbl.appendChild(thead);
+  const tb = document.createElement("tbody");
+  rowsArr.slice(0, 200).forEach(r => {
+    const row = document.createElement("tr");
+    cols.forEach(c => {
+      const td = document.createElement("td");
+      const v = r[c];
+      td.textContent = (v === null || v === undefined) ? "NULL" : String(v);
+      if(typeof v === "number") td.className = "num";
+      row.appendChild(td);
+    });
+    tb.appendChild(row);
+  });
+  tbl.appendChild(tb);
+  box.innerHTML = "";
+  box.appendChild(tbl);
+  box.insertBefore(el("div","emptyHint", rowsArr.length > 200 ? "共 " + total + " 行，显示前 200 行" : "共 " + total + " 行"), box.firstChild);
+}
+
+// 写提案审批卡：SQL + 事务 dry-run 影响行数 + 取证样本 + 风险说明；确认/拒绝都留审计
+function renderProposal(ev){
+  const box = el("div","propBox");
+  const head = el("div","propHead");
+  head.append(
+    el("span","propBadge " + (ev.stmt_type || "").toLowerCase(), ev.stmt_type || "WRITE"),
+    el("span","propTitle", "写操作提案（未执行，等待你的确认）"));
+  box.appendChild(head);
+
+  const pre = el("pre","sql open", ev.sql || "");
+  box.appendChild(pre);
+
+  const meta = el("div","propMeta");
+  const aff = el("span", null, "预估影响 " + ev.affected + " 行（事务 dry-run 实测，非估算）");
+  const tb  = el("span", null, "目标表：" + (ev.tables || []).join(", "));
+  meta.append(aff, document.createElement("br"), tb);
+  if(ev.warn) meta.append(document.createElement("br"), el("span","propWarn","⚠ " + ev.warn));
+  box.appendChild(meta);
+
+  if((ev.sample || []).length){
+    const det = el("details","propSample");
+    det.appendChild(el("summary", null, "将被改动的行（预览 " + ev.sample.length + " 行）"));
+    const srows = el("div","propSampleRows");
+    ev.sample.forEach(r => {
+      srows.appendChild(el("div", null, Object.entries(r).slice(0, 6)
+        .map(([k, v]) => k + "=" + String(v).slice(0, 24)).join(" · ")));
+    });
+    det.appendChild(srows);
+    box.appendChild(det);
+  }
+
+  const btns = el("div","propBtns");
+  const ok = document.createElement("button"); ok.className = "propOk"; ok.textContent = "✓ 确认执行";
+  const no = document.createElement("button"); no.className = "propNo"; no.textContent = "✕ 拒绝";
+  const decide = async action => {
+    ok.disabled = no.disabled = true;
+    try{
+      const r = await fetch("/api/confirm", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({proposal_id: ev.proposal_id, action})});
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.detail || r.status);
+      btns.remove();
+      box.appendChild(el("div", "propResult " + (action === "confirm" ? "okk2" : "no2"),
+        action === "confirm"
+          ? "已执行 · 实际影响 " + d.affected + " 行（审计已记录）"
+          : "已拒绝（审计已记录）"));
+    }catch(e){
+      btns.remove();
+      box.appendChild(el("div","propResult no2","决策失败：" + e.message));
+    }
+  };
+  ok.onclick = () => decide("confirm");
+  no.onclick = () => decide("reject");
+  btns.append(ok, no);
+  box.appendChild(btns);
+  return box;
+}
+
+function renderChart(cfg){  if(!chart) chart = echarts.init($("#chart"));
+  chart.setOption(Object.assign({grid:{left:48,right:24,top:36,bottom:40},
+    color:["#3d5afe","#0a9e6c"], textStyle:{color:"#5b6270",fontSize:11}}, cfg || {}), true);
+}
+
+function setStatus(st){ /* placeholder */ }
+function el(tag, cls, text){
+  const n = document.createElement(tag);
+  if(cls) n.className = cls;
+  if(text !== undefined) n.textContent = text;
+  return n;
+}
+function escapeHtml(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function md(s){
+  s = String(s||"");
+  // 1. markdown 表格 → 占位符（单元格先 escape，防被第 3 步全局 escape 二次破坏）
+  const tables = [];
+  s = s.replace(/((?:\|[^\n]*\n)+)/g, function(block){
+    const lines = block.trim().split("\n");
+    if (lines.length < 3) return block;            // 至少 表头|分隔|一行
+    const sep = lines[1].split("|").slice(1,-1).map(c=>c.trim());
+    if (!sep.every(x=>/^[-:]+$/.test(x))) return block;
+    const head = lines[0].split("|").slice(1,-1).map(c=>c.trim());
+    const body = lines.slice(2).map(l=>l.split("|").slice(1,-1).map(c=>c.trim()));
+    let h = '<table class="ansTbl"><thead><tr>' + head.map(c=>"<th>"+escapeHtml(c)+"</th>").join("") + "</tr></thead><tbody>";
+    body.forEach(r => { h += "<tr>" + r.map(c=>"<td>"+escapeHtml(c)+"</td>").join("") + "</tr>"; });
+    h += "</tbody></table>";
+    tables.push(h);
+    return "\u0001T" + (tables.length-1) + "\u0001";
+  });
+  // 2. 剔除可能漏到文本里的 ECharts XML（图表已由 render_chart 工具独立产出）
+  s = s.replace(/<\s*echarts(?:-config)?[^>]*>[\s\S]*?<\/\s*echarts(?:-config)?\s*>/gi, "");
+  // 3. 全局 escape（此后才允许插入我们自己的标签）
+  s = escapeHtml(s);
+  // 4. 行内排版：加粗 / 行内代码（基于已 escape 文本，只作用单行内容）
+  const inline = function(t){
+    return t.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>")
+            .replace(/`([^`]+)`/g,"<code>$1</code>");
+  };
+  // 5. 逐行转块级元素：## 标题 / 无序列表 / 有序列表 / 表格占位 / 段落。
+  //    列表必须成组包 <ul>/<ol>——旧版用正则包 <li> 遇到含 <b> 的内容就失败（<li> 裸奔）
+  const out = [];
+  let listTag = null, listBuf = null;
+  const flushList = function(){
+    if (listBuf){
+      out.push("<" + listTag + ' class="ans' + (listTag === "ul" ? "Ul" : "Ol") + '">'
+               + listBuf.join("") + "</" + listTag + ">");
+      listBuf = null; listTag = null;
+    }
+  };
+  s.split("\n").forEach(function(raw){
+    const line = raw.replace(/\s+$/,"");
+    const mh = line.match(/^(#{1,6})\s+(.*)$/);          // ## 标题（统一渲染成 h3，避免层级过大）
+    if (mh){ flushList(); out.push('<h3 class="ansH">' + inline(mh[2]) + "</h3>"); return; }
+    const mt = line.match(/^\u0001T(\d+)\u0001$/);       // 表格占位符还原
+    if (mt){ flushList(); out.push(tables[parseInt(mt[1])]); return; }
+    const mu = line.match(/^[ \t]*[-*]\s+(.*)$/);        // 无序列表项
+    if (mu){ if (listTag !== "ul"){ flushList(); listTag = "ul"; listBuf = []; }
+             listBuf.push("<li>" + inline(mu[1]) + "</li>"); return; }
+    const mo = line.match(/^\s*\d{1,3}[.、)]\s+(.*)$/);  // 有序列表项
+    if (mo){ if (listTag !== "ol"){ flushList(); listTag = "ol"; listBuf = []; }
+             listBuf.push("<li>" + inline(mo[1]) + "</li>"); return; }
+    flushList();
+    if (!line.trim()) return;                            // 空行留白由块级元素 margin 承担
+    out.push('<p class="ansP">' + inline(line) + "</p>");
+  });
+  flushList();
+  return out.join("");
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+{
+  "s5_latency": {
+    "total": {
+      "n": 60,
+      "mean": 44.3,
+      "median": 37.0,
+      "p95": 101,
+      "max": 118
+    },
+    "by_type": {
+      "agg_advanced": {
+        "n": 8,
+        "mean": 63.1,
+        "median": 55.0,
+        "p95": 118,
+        "max": 118
+      },
+      "date_boundary": {
+        "n": 8,
+        "mean": 47.9,
+        "median": 35.5,
+        "p95": 117,
+        "max": 117
+      },
+      "domain_metric": {
+        "n": 10,
+        "mean": 48.7,
+        "median": 48.0,
+        "p95": 85,
+        "max": 85
+      },
+      "empty_result": {
+        "n": 4,
+        "mean": 33.2,
+        "median": 32.0,
+        "p95": 53,
+        "max": 53
+      },
+      "multi_join": {
+        "n": 12,
+        "mean": 52.1,
+        "median": 41.0,
+        "p95": 91,
+        "max": 101
+      },
+      "security": {
+        "n": 6,
+        "mean": 28.3,
+        "median": 27.0,
+        "p95": 40,
+        "max": 40
+      },
+      "single_table": {
+        "n": 12,
+        "mean": 29.6,
+        "median": 27.5,
+        "p95": 40,
+        "max": 50
+      }
+    },
+    "self_heal": {
+      "n": 21,
+      "mean": 50.9,
+      "median": 44,
+      "p95": 102,
+      "max": 118
+    },
+    "first_pass_ok": {
+      "n": 39,
+      "mean": 40.7,
+      "median": 36,
+      "p95": 85,
+      "max": 117
+    }
+  },
+  "s8_cost": {
+    "agentic": {
+      "n_ok": 8,
+      "tokens_per_case": {
+        "n": 8,
+        "mean": 9822.4,
+        "median": 6794.0,
+        "p95": 25368,
+        "max": 25368
+      },
+      "latency_s_per_case": {
+        "n": 8,
+        "mean": 36.7,
+        "median": 29.9,
+        "p95": 86.6,
+        "max": 86.6
+      },
+      "llm_calls_per_case": {
+        "n": 8,
+        "mean": 3.6,
+        "median": 3.0,
+        "p95": 8,
+        "max": 8
+      }
+    },
+    "supervisor": {
+      "n_ok": 7,
+      "tokens_per_case": {
+        "n": 7,
+        "mean": 4984,
+        "median": 4300,
+        "p95": 8807,
+        "max": 8807
+      },
+      "latency_s_per_case": {
+        "n": 7,
+        "mean": 58.3,
+        "median": 56.6,
+        "p95": 109.9,
+        "max": 109.9
+      },
+      "llm_calls_per_case": {
+        "n": 7,
+        "mean": 4.6,
+        "median": 4,
+        "p95": 8,
+        "max": 8
+      }
+    },
+    "token_delta": "[旧口径·不可作结论] supervisor vs agentic: -49% /例（图内记账；agentic 侧少算约 31%，同口径实测为 -9.8%，见 METRICS.md「数字变更记录」）"
+  }
+}

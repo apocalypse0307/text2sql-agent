@@ -1,0 +1,41 @@
+# 构建上下文瘦身 + 防止把本机敏感/巨大文件带进镜像。
+#
+# 注意：Dockerfile 里只 COPY 了 src/ scripts/ web/ evals/ tests/，
+# 所以这里的规则主要是**减少构建上下文传输量**（data/ 里真实库 135 MB、
+# 原始 CSV 58 MB，每次构建都要打包发送一遍）。同时兜住「以后有人顺手
+# COPY . .」的情况——那时 .env 与真实库就会被带进镜像。
+
+# ---------- 版本控制 / 虚拟环境 ----------
+.git
+.gitignore
+.gitattributes
+.venv
+venv
+env
+
+# ---------- Python 缓存与构建产物 ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# ---------- 数据（卷挂载，绝不进镜像）----------
+# 真实库、原始 CSV、审计日志、自定义表注册全在这里
+data/
+logs/
+
+# ---------- 密钥 ----------
+# 真实密钥永不进镜像；容器里通过 compose 的 environment 传
+.env
+.env.*
+!.env.example
+
+# ---------- 与运行无关的文档与素材 ----------
+docs/
+assets/
+*.md
+!README.md

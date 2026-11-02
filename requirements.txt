@@ -1,0 +1,34 @@
+# 核心业务依赖（基于系统 Python 3.12 venv --system-site-packages，
+# torch 2.7.1+cu126 由系统环境继承——P2 SQL Agent 不需要本地向量模型，
+# Few-shot 示例检索用轻量 TF 关键词相似度（src/agent/fewshot.py），库规模上千后
+# 可无痛切换 BGE-M3 编码，检索器接口签名不变）
+langgraph>=1.2.0
+langchain-openai>=1.3.0
+openai>=2.26.0,<3.0.0
+sqlparse>=0.5.0
+sqlalchemy>=2.0.0
+# MySQL 生产形态（DB_URL=mysql+pymysql://...）的驱动。SQLite 开发不需要它，
+# 但 README/.env.example 里写着「生产切 MySQL 只改一行 DB_URL」——
+# 少了这个包，那行改完就是 ModuleNotFoundError: No module named 'pymysql'，
+# 所谓「只改一行」不成立。体积约 50 KB，直接声明。
+PyMySQL>=1.1.0
+pandas>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+sse-starlette>=2.0.0
+fastapi>=0.115.0
+uvicorn>=0.30.0
+python-multipart>=0.0.9
+fakeredis>=2.20.0
+redis>=5.0.0
+tenacity>=8.0.0
+rich>=13.0.0
+pytest>=8.0.0
+mcp==1.26.0
+# 为什么钉死而不是 `>=1.26.0`：CI 用干净环境装依赖时，`>=1.26.0` 解析到了 2.x，
+# test_mcp.py 直接 5 failed + 4 errors（2.x 改了客户端/服务端启动语义：
+# `RuntimeError: JSONRPCDispatcher.send_raw_request called before run()` / `CONNECTION_CLOSED`）。
+# 退到 `>=1.26.0,<2`（实测装到 1.30.0）后仍剩 1 条子进程用例在全套顺序下偶发失败
+# （server 在处理 tools/list 时抛异常），单独跑却通过——即**版本 + 测试顺序**共同作用。
+# 本项目对 MCP 的用法是按 1.26.0 验证的（README/METRICS 的数字也都在该版本下取得），
+# 所以钉死到它。要升版本必须单独做一次适配 + 全套回归，不能靠 pip 自动升。

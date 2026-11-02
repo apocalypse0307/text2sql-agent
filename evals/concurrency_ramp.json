@@ -1,0 +1,147 @@
+{
+  "meta": {
+    "path": "ramp",
+    "n": 60,
+    "concurrency": 2,
+    "graph": "agentic",
+    "timeout_s": 180.0,
+    "url": null,
+    "started_at": "2026-10-20 16:57:28",
+    "tag": ""
+  },
+  "rows": [
+    {
+      "kind": "schema",
+      "concurrency": 2,
+      "summary": {
+        "n": 60,
+        "n_ok": 60,
+        "n_fail": 0,
+        "qps": 824.042,
+        "wall_s": 0.07,
+        "p50_ms": 1.87,
+        "p95_ms": 3.04,
+        "p99_ms": 12.55,
+        "mean_ms": 2.26,
+        "err_rate": 0.0,
+        "outcomes": {
+          "done": 60
+        }
+      }
+    },
+    {
+      "kind": "schema",
+      "concurrency": 5,
+      "summary": {
+        "n": 60,
+        "n_ok": 60,
+        "n_fail": 0,
+        "qps": 1036.606,
+        "wall_s": 0.06,
+        "p50_ms": 4.36,
+        "p95_ms": 6.97,
+        "p99_ms": 8.87,
+        "mean_ms": 4.61,
+        "err_rate": 0.0,
+        "outcomes": {
+          "done": 60
+        }
+      }
+    },
+    {
+      "kind": "schema",
+      "concurrency": 10,
+      "summary": {
+        "n": 60,
+        "n_ok": 60,
+        "n_fail": 0,
+        "qps": 945.437,
+        "wall_s": 0.06,
+        "p50_ms": 9.18,
+        "p95_ms": 16.06,
+        "p99_ms": 16.89,
+        "mean_ms": 10.0,
+        "err_rate": 0.0,
+        "outcomes": {
+          "done": 60
+        }
+      }
+    },
+    {
+      "kind": "schema",
+      "concurrency": 20,
+      "summary": {
+        "n": 60,
+        "n_ok": 60,
+        "n_fail": 0,
+        "qps": 648.759,
+        "wall_s": 0.09,
+        "p50_ms": 27.73,
+        "p95_ms": 49.93,
+        "p99_ms": 56.55,
+        "mean_ms": 26.9,
+        "err_rate": 0.0,
+        "outcomes": {
+          "done": 60
+        }
+      }
+    },
+    {
+      "kind": "schema",
+      "concurrency": 40,
+      "summary": {
+        "n": 60,
+        "n_ok": 60,
+        "n_fail": 0,
+        "qps": 681.148,
+        "wall_s": 0.09,
+        "p50_ms": 45.05,
+        "p95_ms": 62.07,
+        "p99_ms": 62.84,
+        "mean_ms": 46.12,
+        "err_rate": 0.0,
+        "outcomes": {
+          "done": 60
+        }
+      }
+    },
+    {
+      "kind": "query",
+      "concurrency": 2,
+      "summary": {
+        "n": 5,
+        "n_ok": 5,
+        "n_fail": 0,
+        "qps": 0.174,
+        "wall_s": 28.81,
+        "p50_ms": 5758.16,
+        "p95_ms": 21106.38,
+        "p99_ms": 21106.38,
+        "mean_ms": 11135.53,
+        "err_rate": 0.0,
+        "outcomes": {
+          "done": 5
+        }
+      }
+    },
+    {
+      "kind": "query",
+      "concurrency": 5,
+      "summary": {
+        "n": 5,
+        "n_ok": 5,
+        "n_fail": 0,
+        "qps": 0.853,
+        "wall_s": 5.86,
+        "p50_ms": 4226.89,
+        "p95_ms": 5860.49,
+        "p99_ms": 5860.49,
+        "mean_ms": 4482.53,
+        "err_rate": 0.0,
+        "outcomes": {
+          "done": 5
+        }
+      }
+    }
+  ]
+}

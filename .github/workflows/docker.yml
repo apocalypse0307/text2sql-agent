@@ -1,0 +1,138 @@
+name: Docker
+
+# 镜像与 compose 的真跑验证（T2，2026-10-20）。
+#
+# ## 为什么必须放 CI
+#
+# 开发机是 Windows + **没有装 Docker**（`docker: command not found`，且 wsl.exe
+# 被本机安全策略拉黑）。也就是说本地的 Dockerfile / compose **无法在提交前验证**，
+# 只能靠 GitHub runner（自带 Docker + compose v2）收敛。
+#
+# 这不是理论风险：P1 的同类 workflow 首次真跑就红了——test 阶段少拷了 src/ 与 web/，
+# 镜像能建、容器内 pytest 一起手就 ModuleNotFoundError。
+#
+# ## 两个 job
+#
+#   image    —— `--target test` 构建 → 容器内跑 pytest（默认口径）
+#   compose  —— `docker compose up -d --wait` → /api/health → /api/schema →
+#               容器内真跑一句 SQL → down
+#
+# compose 这条路验的是「一键起服务」这个**验收标准本身**，不是 Docker 语法。
+#
+# ## 为什么 CI 里不验问答
+#
+# `/api/query` 要真实 LLM，需要占位 secret + 每跑一次花钱。这里验到
+# 「服务起来 + 库能查」为止；LLM 链路由仓库里的 FakeLLM 用例覆盖（pytest 那步）。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+      - .dockerignore
+      - requirements.txt
+      - src/**
+      - scripts/**
+      - web/**
+      - tests/**
+      - .github/workflows/docker.yml
+  pull_request:
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+      - .dockerignore
+      - requirements*.txt
+  schedule:
+    - cron: "0 3 * * 3"      # 每周三 03:00 UTC 兜底（防上游依赖漂移）
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: 镜像构建 + 容器内 pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 构建测试阶段镜像
+        run: docker build --target test -t p2-text2sql:test .
+
+      - name: 容器内跑测试（默认口径）
+        # test 阶段在构建期已生成合成 fixture 库，这里不需要挂任何卷
+        run: docker run --rm p2-text2sql:test
+
+      - name: 构建生产镜像（默认 target）
+        run: docker build -t p2-text2sql:runtime .
+
+      - name: 生产镜像自检：能导入应用
+        run: |
+          docker run --rm p2-text2sql:runtime python -c "
+          import src.api.server as m
+          print('server 导入成功；路由数 =', len(m.app.routes))
+          "
+
+  compose:
+    name: compose up + health + 真查一句
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 准备 data 卷目录
+        # 宿主机先建好，避免 Docker 以 root 身份创建导致后续权限问题
+        run: mkdir -p data/db
+
+      - name: 构建镜像
+        run: docker compose build
+
+      - name: 生成合成库到 data 卷（服务起来之前）
+        # 空库也能过 /api/health（那个接口不碰库），但那样「起来了」没有意义。
+        # 先备好库，后面的 /api/query 通路才算真的可用。
+        run: docker compose run --rm --no-deps api python scripts/make_fixture_db.py
+
+      - name: 后台起服务并等 healthy
+        # --wait 会等到 healthcheck 通过（compose v2.1+）；超时就是我们想要的失败
+        run: docker compose up -d --wait --wait-timeout 180
+
+      - name: 看容器状态（失败时才有用）
+        if: failure()
+        run: docker compose ps -a && docker compose logs --tail 100
+
+      - name: /api/health 必须是 ready
+        run: |
+          echo "--- body ---"
+          curl -fsS http://127.0.0.1:8501/api/health | tee /tmp/health.json
+          echo
+          grep -q '"ok":true' /tmp/health.json || { echo "health 不是 ok"; exit 1; }
+
+      - name: /api/schema 必须列出 9 张表
+        run: |
+          curl -fsS http://127.0.0.1:8501/api/schema > /tmp/schema.json
+          n=$(python3 -c "import json;print(len(json.load(open('/tmp/schema.json'))['tables']))")
+          echo "tables = $n"
+          test "$n" -eq 9 || { echo "期望 9 张表，实际 $n"; exit 1; }
+
+      - name: 静态前端可访问
+        run: curl -fsS -o /dev/null -w "GET / -> %{http_code}\n" http://127.0.0.1:8501/
+
+      - name: 容器内真跑一句 SQL（不调 LLM）
+        # 验收「一键起来能取数」：走只读连接查一行
+        run: |
+          docker compose run --rm --no-deps api python -c "
+          from src.db.connect import execute_select
+          rows = execute_select('SELECT COUNT(*) AS c FROM orders')
+          print('orders =', rows)
+          assert rows and rows[0]['c'] > 0
+          "
+
+      - name: 收尾
+        if: always()
+        run: docker compose down -v

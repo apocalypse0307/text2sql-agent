@@ -1,0 +1,72 @@
+name: CI
+
+# T1（2026-10-20）：README 挂绿徽章 = 项目是活的。
+#
+# 三个闸门，按「失败最快 → 慢」排：
+#   ① ruff                       —— 真实缺陷类规则（未定义名 / 未用导入 / 语法错），几秒
+#   ② 生成 CI 用合成 fixture 库   —— 见下方「为什么必须有这一步」
+#   ③ pytest                     —— 默认口径，不联网、不读凭据、不调 LLM
+#
+# ## 为什么必须有「合成 fixture 库」这一步（血泪）
+#
+# 本项目库文件 data/db/olist.db（135 MB）由 Kaggle 的 Olist CSV 建出，**不入库**
+# （.gitignore: data/raw/、data/db/*、*.db）。干净克隆里没有它，于是：
+#
+#     干净克隆实测：137 passed / 10 failed / 2 skipped
+#     10 条全因 sqlite3.OperationalError（没有 orders 表）
+#
+# 也就是说「默认 147 passed / 2 skipped，任何机器一致」这句话当时**并不成立**，
+# 成立的是「任何**建过库**的机器」。CI 在干净环境里跑，正好把这个缺口照出来了。
+#
+# 解法不是下载真数据集（要 Kaggle 账号 + 每次拉 58 MB），而是
+# scripts/make_fixture_db.py 用 schema.py 的 DDL 生成合成库：
+# 表结构真实、行数是合成的，够让「碰库」的用例跑通代码路径。
+# 真实业务基数由 init_db.py 的 EXPECTED 校验与 METRICS.md 负责，不由单测负责。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest + ruff (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # 只测 3.12：requirements 与 mcp/pandas 的 wheel 组合在 3.12 上最稳
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: 安装依赖
+        # ruff 是可选的开发依赖，没有进 requirements.txt（那里面只放运行时依赖）
+        run: pip install -r requirements.txt ruff
+
+      - name: Lint（真实缺陷类规则，不打架格式风格）
+        run: ruff check --select E9,F63,F7,F82,F401,F811,F841,F821,F822,F823 .
+
+      - name: 生成 CI 用合成 fixture 库
+        run: python scripts/make_fixture_db.py
+
+      - name: 测试（默认口径，零外部依赖）
+        # 不需要任何 key：真 LLM 用例由 RUN_SLOW=1 显式门控，默认 2 skipped
+        run: python -m pytest -q

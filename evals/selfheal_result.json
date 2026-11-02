@@ -1,0 +1,176 @@
+{
+  "healed": 17,
+  "total": 24,
+  "rate": 0.7083,
+  "results": [
+    {
+      "id": "a01",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(item_count), 2) AS avg_unique_items_per_order FROM (SELECT o.order_id, COUNT(DISTINCT oi.product_id) AS item_count FROM ord"
+    },
+    {
+      "id": "a01",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(item_count), 2) AS avg_unique_items_per_order FROM (SELECT o.order_id, COUNT(DISTINCT oi.product_id) AS item_count FROM ord"
+    },
+    {
+      "id": "a01",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(item_count), 2) AS avg_unique_items_per_order FROM (SELECT o.order_id, COUNT(DISTINCT oi.product_id) AS item_count FROM ord"
+    },
+    {
+      "id": "a02",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT \n    customer_state,\n    ROUND(AVG(order_count), 2) AS avg_orders\nFROM (\n    SELECT \n        c.customer_unique_id,\n        c.customer"
+    },
+    {
+      "id": "a02",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT \n    customer_state,\n    ROUND(AVG(order_count), 2) AS avg_orders\nFROM (\n    SELECT \n        c.customer_unique_id,\n        c.customer"
+    },
+    {
+      "id": "a02",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT \n    customer_state AS state,\n    ROUND(AVG(order_count), 2) AS avg_orders\nFROM (\n    SELECT \n        c.customer_unique_id,\n        c"
+    },
+    {
+      "id": "a03",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT COUNT(*) AS customers_with_5plus_orders FROM (SELECT c.customer_unique_id FROM orders o JOIN customers c ON o.customer_id = c.custome"
+    },
+    {
+      "id": "a03",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT COUNT(*) AS customer_count FROM (SELECT c.customer_unique_id FROM orders o JOIN customers c ON o.customer_id = c.customer_id WHERE o."
+    },
+    {
+      "id": "a03",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT COUNT(*) AS customer_count FROM (SELECT customer_unique_id FROM orders o JOIN customers c ON o.customer_id = c.customer_id WHERE o.or"
+    },
+    {
+      "id": "a06",
+      "kind": "E1_col",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN total_amount >= 100 AND total_amount <= 200 THEN 1 ELSE 0 END) / COUNT(*), 2) AS pct FROM (SELECT o.order"
+    },
+    {
+      "id": "a06",
+      "kind": "E2_table",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN order_total BETWEEN 100 AND 200 THEN 1 ELSE 0 END) / COUNT(*), 2) AS pct FROM (SELECT o.order_id, SUM(oi."
+    },
+    {
+      "id": "a06",
+      "kind": "E3_syntax",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN order_total >= 100 AND order_total <= 200 THEN 1 ELSE 0 END) / COUNT(*), 2) AS pct FROM (SELECT o.order_i"
+    },
+    {
+      "id": "a08",
+      "kind": "E1_col",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT ROUND(\n  (SUM(CASE WHEN o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2019-01-01' THEN oi.price + oi.f"
+    },
+    {
+      "id": "a08",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT \n  ROUND(\n    (SUM(CASE WHEN o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2019-01-01' THEN oi.price +"
+    },
+    {
+      "id": "a08",
+      "kind": "E3_syntax",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT \n  ROUND(\n    (SUM(CASE WHEN o.order_purchase_timestamp >= '2018-01-01' AND o.order_purchase_timestamp < '2019-01-01' THEN oi.price +"
+    },
+    {
+      "id": "m02",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state, ROUND(SUM(oi.price + oi.freight_value) / COUNT(DISTINCT o.order_id), 2) AS avg_order_value FROM orders o JOIN order"
+    },
+    {
+      "id": "m02",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT \n    c.customer_state AS state,\n    ROUND(SUM(oi.price + oi.freight_value) / COUNT(DISTINCT o.order_id), 2) AS avg_order_value\nFROM o"
+    },
+    {
+      "id": "m02",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state AS state, ROUND(SUM(oi.price + oi.freight_value) / COUNT(DISTINCT o.order_id), 2) AS avg_order_value FROM orders o J"
+    },
+    {
+      "id": "m08",
+      "kind": "E1_col",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT \n    customer_state,\n    ROUND(AVG(order_freight), 2) AS avg_freight\nFROM (\n    SELECT \n        o.order_id,\n        c.customer_state,"
+    },
+    {
+      "id": "m08",
+      "kind": "E2_table",
+      "healed": false,
+      "err": "结果不匹配",
+      "sql": "SELECT \n    c.customer_state,\n    ROUND(AVG(order_freight.total_freight), 2) AS avg_freight\nFROM (\n    SELECT order_id, SUM(freight_value) A"
+    },
+    {
+      "id": "m08",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT c.customer_state, ROUND(AVG(oi.freight_value), 2) AS avg_freight FROM orders o JOIN customers c ON o.customer_id = c.customer_id JOIN"
+    },
+    {
+      "id": "g07",
+      "kind": "E1_col",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(julianday(order_delivered_customer_date) - julianday(order_approved_at)), 2) AS avg_days\nFROM orders\nWHERE order_status = '"
+    },
+    {
+      "id": "g07",
+      "kind": "E2_table",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(julianday(order_delivered_customer_date) - julianday(order_approved_at)), 2) AS avg_days FROM orders WHERE order_status = '"
+    },
+    {
+      "id": "g07",
+      "kind": "E3_syntax",
+      "healed": true,
+      "err": "",
+      "sql": "SELECT ROUND(AVG(julianday(order_delivered_customer_date) - julianday(order_approved_at)), 2) AS avg_days_approved_to_delivered\nFROM orders\n"
+    }
+  ],
+  "elapsed_s": 428
+}

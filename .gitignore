@@ -1,0 +1,28 @@
+# 环境与依赖
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 密钥（真实值永不入库；模板见 .env.example）
+.env
+
+# 数据（CSV 与数据库文件不入库）
+data/raw/
+# 注意：必须写成 data/db/*（而非 data/db/）——目录级忽略会让 git 整个跳过该目录，
+# 后面的「例外」规则永远不生效，custom_tables.json 也就无法入库
+data/db/*
+*.db
+*.sqlite
+# 例外：动态注册表元数据（很小且需入库，否则「CSV 导入的表重启自动恢复」会失效）
+!data/db/custom_tables.json
+
+# 本地文档（不入库）
+docs/
+
+# 日志与临时
+logs/
+.tmp/
+
+# 探路评测产物（只为定预算，不是正式结果，不入库；正式结果按 --tag 命名后入库）
+evals/*pilot*
